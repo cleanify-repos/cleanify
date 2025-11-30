@@ -47,6 +47,10 @@ app.get('/', (req, res) => {
   res.json({ ok: true, msg: 'Cleanify API' });
 });
 
+app.get('/api/health', (req, res) => {
+  res.json({ ok: true, status: 'healthy', timestamp: new Date().toISOString() });
+});
+
 async function start() {
   const mongo = process.env.MONGO_URI || 'mongodb://localhost:27017/cleanify';
   await mongoose.connect(mongo, { useNewUrlParser: true, useUnifiedTopology: true });
