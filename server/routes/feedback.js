@@ -1,15 +1,22 @@
 const express = require('express');
 const router = express.Router();
-const sgMail = require('@sendgrid/mail');
+const nodemailer = require('nodemailer');
 
-// SendGrid configuration
-const sendGridApiKey = process.env.SENDGRID_API_KEY || '';
-const feedbackFrom = process.env.FEEDBACK_FROM || 'cleanifyfeedback@gmail.com';
+// Gmail configuration
+const gmailUser = process.env.GMAIL_USER || 'cleanifyfeedback@gmail.com';
+const gmailPassword = process.env.GMAIL_PASSWORD || '';
 const feedbackRecipient = process.env.FEEDBACK_RECIPIENT || 'cleanifyfeedback@gmail.com';
 
-sgMail.setApiKey(sendGridApiKey);
+// Create Gmail transporter
+const transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: gmailUser,
+    pass: gmailPassword
+  }
+});
 
-console.log('📧 SendGrid configured with API key');
+console.log('📧 Gmail transporter configured for:', gmailUser);
 
 // POST /api/send-feedback - Send feedback via Gmail
 router.post('/', async (req, res) => {
@@ -30,7 +37,7 @@ router.post('/', async (req, res) => {
 
     // Email to admin
     const adminEmail = {
-      from: feedbackFrom,
+      from: gmailUser,
       to: feedbackRecipient,
       subject: `[${category}] New Feedback from ${name}`,
       html: `
@@ -50,7 +57,7 @@ router.post('/', async (req, res) => {
 
     // Email to user (confirmation)
     const userEmail = {
-      from: feedbackFrom,
+      from: gmailUser,
       to: email,
       subject: 'We Received Your Feedback - Cleanify Citizen',
       html: `
@@ -67,11 +74,11 @@ router.post('/', async (req, res) => {
       `
     };
 
-    // Send emails via SendGrid
-    await sgMail.send(adminEmail);
+    // Send emails via Gmail
+    await transporter.sendMail(adminEmail);
     console.log(`📧 Admin email sent from ${email} - Category: ${category}`);
 
-    await sgMail.send(userEmail);
+    await transporter.sendMail(userEmail);
     console.log(`📧 Confirmation email sent to ${email}`);
 
     res.json({
