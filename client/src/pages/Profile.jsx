@@ -38,7 +38,8 @@ export default function Profile(){
     
     // Save email to database
     const userName = localStorage.getItem('userName') || 'Anonymous'
-    fetch(`http://localhost:4000/api/users/${userName}/update-email`, {
+    const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000'
+    fetch(`${API_BASE}/api/users/${userName}/update-email`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email: profile.email })

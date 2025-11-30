@@ -71,7 +71,8 @@ export default function MunicipalDashboard() {
 
   const handleSolved = async (reportId) => {
     try {
-      const res = await fetch(`http://localhost:4000/api/reports/${reportId}/solve`, {
+      const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000'
+      const res = await fetch(`${API_BASE}/api/reports/${reportId}/solve`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: 'Solved' })

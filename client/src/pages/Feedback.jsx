@@ -37,7 +37,8 @@ export default function Feedback() {
     setMessage('')
 
     try {
-      const response = await fetch('http://localhost:4000/api/send-feedback', {
+      const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000'
+      const response = await fetch(`${API_BASE}/api/send-feedback`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
