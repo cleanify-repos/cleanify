@@ -18,10 +18,36 @@ const transporter = nodemailer.createTransport({
 
 console.log('📧 Gmail transporter configured for:', gmailUser);
 
+// Test endpoint to verify transporter configuration
+router.get('/test', async (req, res) => {
+  console.log('🧪 Testing Gmail transporter...');
+  console.log('Gmail User:', gmailUser);
+  console.log('Gmail Password length:', gmailPassword?.length || 0);
+  console.log('Feedback Recipient:', feedbackRecipient);
+  
+  try {
+    // Test the connection
+    const verified = await transporter.verify();
+    console.log('✅ Transporter verified:', verified);
+    res.json({ 
+      ok: verified,
+      message: verified ? 'Gmail transporter is ready!' : 'Transporter not ready'
+    });
+  } catch (err) {
+    console.error('❌ Transporter test error:', err.message);
+    res.status(500).json({
+      ok: false,
+      error: err.message
+    });
+  }
+});
+
 // POST /api/send-feedback - Send feedback via Gmail
 router.post('/', async (req, res) => {
   try {
     const { name, email, category, feedback, timestamp } = req.body;
+
+    console.log('📨 Feedback request received:', { name, email, category });
 
     // Validate inputs
     if (!name || !feedback || !email) {
@@ -33,7 +59,7 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: 'Valid email address required' });
     }
 
-    const feedbackDate = new Date(timestamp).toLocaleString();
+    const feedbackDate = new Date(timestamp || Date.now()).toLocaleString();
 
     // Email to admin
     const adminEmail = {
@@ -74,12 +100,13 @@ router.post('/', async (req, res) => {
       `
     };
 
-    // Send emails via Gmail
+    console.log('📧 Attempting to send admin email...');
     await transporter.sendMail(adminEmail);
-    console.log(`📧 Admin email sent from ${email} - Category: ${category}`);
+    console.log(`✅ Admin email sent from ${email} - Category: ${category}`);
 
+    console.log('📧 Attempting to send confirmation email...');
     await transporter.sendMail(userEmail);
-    console.log(`📧 Confirmation email sent to ${email}`);
+    console.log(`✅ Confirmation email sent to ${email}`);
 
     res.json({
       ok: true,
@@ -89,6 +116,7 @@ router.post('/', async (req, res) => {
 
   } catch (err) {
     console.error('❌ Feedback error:', err.message);
+    console.error('Error stack:', err.stack);
     res.status(500).json({
       error: 'Failed to send feedback: ' + err.message
     });
