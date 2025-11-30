@@ -86,28 +86,44 @@ router.post('/', async (req, res) => {
       <p>Best regards,<br/>Cleanify Citizen Team</p>
     `;
 
-    // Send to admin
-    await transporter.sendMail({
-      from: emailConfig.from,
-      to: emailConfig.feedbackRecipient,
-      subject: `[${category.toUpperCase()}] New Feedback from ${name}`,
-      html: adminEmailContent,
-      replyTo: userEmail
-    });
+    // Send emails with timeout of 10 seconds
+    let emailSendError = null;
+    
+    try {
+      // Send to admin (with timeout)
+      const adminEmailPromise = transporter.sendMail({
+        from: emailConfig.from,
+        to: emailConfig.feedbackRecipient,
+        subject: `[${category.toUpperCase()}] New Feedback from ${name}`,
+        html: adminEmailContent,
+        replyTo: userEmail
+      });
 
-    // Send confirmation to user
-    await transporter.sendMail({
-      from: emailConfig.from,
-      to: userEmail,
-      subject: 'We Received Your Feedback - Cleanify Citizen',
-      html: userEmailContent
-    });
+      // Send confirmation to user (with timeout)
+      const userEmailPromise = transporter.sendMail({
+        from: emailConfig.from,
+        to: userEmail,
+        subject: 'We Received Your Feedback - Cleanify Citizen',
+        html: userEmailContent
+      });
 
-    console.log(`📧 Feedback email sent from ${userEmail} - Category: ${category}`);
+      // Wait for both emails with 10 second timeout
+      await Promise.race([
+        Promise.all([adminEmailPromise, userEmailPromise]),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Email send timeout')), 10000))
+      ]);
+
+      console.log(`📧 Feedback email sent from ${userEmail} - Category: ${category}`);
+    } catch (emailErr) {
+      // If email fails, log but don't block feedback submission
+      emailSendError = emailErr.message;
+      console.warn('⚠️ Email sending failed:', emailErr.message);
+      console.log('💾 Feedback still recorded in database');
+    }
 
     res.json({
       ok: true,
-      message: 'Feedback sent successfully',
+      message: emailSendError ? 'Feedback received (email pending)' : 'Feedback sent successfully',
       feedbackId: `FB-${Date.now()}`
     });
 

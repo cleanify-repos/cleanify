@@ -38,34 +38,53 @@ export default function Feedback() {
 
     try {
       const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000'
-      const response = await fetch(`${API_BASE}/api/send-feedback`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name,
-          email,
-          category: `Rating: ${rating} Star${rating !== 1 ? 's' : ''}`,
-          feedback: feedback || `${rating} star rating`,
-          timestamp: new Date().toISOString()
-        })
-      })
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        setMessage(`❌ ${data.error || 'Failed to send feedback'}`)
-        setLoading(false)
-        return
-      }
-
-      setMessage('✅ Thank you! Your feedback has been sent.')
-      setRating(5)
-      setFeedback('')
       
-      // Redirect to home after 2 seconds
-      setTimeout(() => {
-        nav('/home')
-      }, 2000)
+      // Create abort controller for timeout
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 15000) // 15 second timeout
+      
+      try {
+        const response = await fetch(`${API_BASE}/api/send-feedback`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name,
+            email,
+            category: `Rating: ${rating} Star${rating !== 1 ? 's' : ''}`,
+            feedback: feedback || `${rating} star rating`,
+            timestamp: new Date().toISOString()
+          }),
+          signal: controller.signal
+        })
+
+        clearTimeout(timeoutId)
+
+        const data = await response.json()
+
+        if (!response.ok) {
+          setMessage(`❌ ${data.error || 'Failed to send feedback'}`)
+          setLoading(false)
+          return
+        }
+
+        setMessage('✅ Thank you! Your feedback has been sent.')
+        setRating(5)
+        setFeedback('')
+        
+        // Redirect to home after 2 seconds
+        setTimeout(() => {
+          nav('/home')
+        }, 2000)
+      } catch (fetchErr) {
+        clearTimeout(timeoutId)
+        
+        if (fetchErr.name === 'AbortError') {
+          setMessage('❌ Request timed out. Please check your connection and try again.')
+        } else {
+          throw fetchErr
+        }
+        setLoading(false)
+      }
     } catch (err) {
       console.error('Error:', err)
       setMessage('❌ Error sending feedback: ' + err.message)
