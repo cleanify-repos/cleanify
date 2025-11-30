@@ -16,8 +16,10 @@ const feedbackRoute = require('./routes/feedback');
 const app = express();
 app.use(cors({
   origin: '*',
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type']
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Accept', 'Authorization'],
+  credentials: false,
+  maxAge: 3600
 }));
 app.use(morgan('dev'));
 app.use(express.json());
