@@ -67,7 +67,7 @@ export default function Feedback() {
           return
         }
 
-        setMessage('✅ Thank you! Your feedback has been sent.')
+        setMessage('✅ Thank you! Your feedback has been received.')
         setRating(5)
         setFeedback('')
         

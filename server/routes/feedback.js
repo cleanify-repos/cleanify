@@ -1,33 +1,23 @@
 const express = require('express');
 const router = express.Router();
-const nodemailer = require('nodemailer');
-const emailConfig = require('../config/emailConfig');
+const mongoose = require('mongoose');
 const User = require('../models/User');
 
-// Create transporter for sending emails
-let transporter = nodemailer.createTransport({
-  service: 'gmail',
-  auth: {
-    user: emailConfig.from,
-    pass: emailConfig.gmailPassword
-  }
+// Create Feedback schema for storing feedback in database
+const feedbackSchema = new mongoose.Schema({
+  name: String,
+  email: String,
+  category: String,
+  feedback: String,
+  timestamp: Date,
+  createdAt: { type: Date, default: Date.now }
 });
 
-// Test email configuration
-transporter.verify((error, success) => {
-  if (error) {
-    console.log('❌ Email configuration issue:', error.message);
-    console.log('📧 Gmail setup instructions:');
-    console.log('1. Visit https://myaccount.google.com/apppasswords');
-    console.log('2. Select "Mail" and "Windows Computer" (or your device)');
-    console.log('3. Copy the generated 16-character password');
-    console.log('4. Set GMAIL_PASSWORD environment variable');
-  } else {
-    console.log('✅ Email service is ready to send');
-  }
-});
+const Feedback = mongoose.model('Feedback', feedbackSchema);
 
-// POST /api/send-feedback - Send feedback via email
+console.log('✅ Feedback service is ready (database only, no email)');
+
+// POST /api/send-feedback - Save feedback to database
 router.post('/', async (req, res) => {
   try {
     const { name, email, category, feedback, timestamp } = req.body;
@@ -53,93 +43,28 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: 'Valid email address required' });
     }
 
-    // Allow optional feedback (just rating is ok)
-    if (feedback && feedback.length < 5) {
-      // Accept short feedback or just ratings
-    }
+    // Save feedback to database
+    const feedbackDoc = new Feedback({
+      name,
+      email: userEmail,
+      category,
+      feedback,
+      timestamp: new Date(timestamp)
+    });
 
-    // Email to admin
-    const adminEmailContent = `
-      <h2>New Feedback Received</h2>
-      <p><strong>Category:</strong> ${category.toUpperCase()}</p>
-      <p><strong>From:</strong> ${name} (${userEmail})</p>
-      <p><strong>Received:</strong> ${new Date(timestamp).toLocaleString()}</p>
-      <hr />
-      <h3>Feedback Message:</h3>
-      <p>${feedback.replace(/\n/g, '<br>')}</p>
-      <hr />
-      <p><em>This is an automated message from Cleanify Citizen App</em></p>
-    `;
-
-    // Email to user (confirmation)
-    const userEmailContent = `
-      <h2>Thank You for Your Feedback! ❤️</h2>
-      <p>Dear ${name},</p>
-      <p>We have received your feedback and greatly appreciate your input. Your message helps us improve the Cleanify Citizen App.</p>
-      <hr />
-      <p><strong>Your Feedback Summary:</strong></p>
-      <p><strong>Category:</strong> ${category.charAt(0).toUpperCase() + category.slice(1)}</p>
-      <p><strong>Submitted:</strong> ${new Date(timestamp).toLocaleString()}</p>
-      <hr />
-      <p>We will review your feedback and respond if needed. Thank you for using our app!</p>
-      <p style="font-style: italic; color: #26a69a; margin-top: 20px;">Automated feedback from Vivek ❤️</p>
-      <p>Best regards,<br/>Cleanify Citizen Team</p>
-    `;
-
-    // Send emails with timeout of 10 seconds
-    let emailSendError = null;
-    
-    try {
-      // Send to admin (with timeout)
-      const adminEmailPromise = transporter.sendMail({
-        from: emailConfig.from,
-        to: emailConfig.feedbackRecipient,
-        subject: `[${category.toUpperCase()}] New Feedback from ${name}`,
-        html: adminEmailContent,
-        replyTo: userEmail
-      });
-
-      // Send confirmation to user (with timeout)
-      const userEmailPromise = transporter.sendMail({
-        from: emailConfig.from,
-        to: userEmail,
-        subject: 'We Received Your Feedback - Cleanify Citizen',
-        html: userEmailContent
-      });
-
-      // Wait for both emails with 10 second timeout
-      await Promise.race([
-        Promise.all([adminEmailPromise, userEmailPromise]),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('Email send timeout')), 10000))
-      ]);
-
-      console.log(`📧 Feedback email sent from ${userEmail} - Category: ${category}`);
-    } catch (emailErr) {
-      // If email fails, log but don't block feedback submission
-      emailSendError = emailErr.message;
-      console.warn('⚠️ Email sending failed:', emailErr.message);
-      console.log('💾 Feedback still recorded in database');
-    }
+    await feedbackDoc.save();
+    console.log(`� Feedback saved from ${userEmail} - Category: ${category}`);
 
     res.json({
       ok: true,
-      message: emailSendError ? 'Feedback received (email pending)' : 'Feedback sent successfully',
-      feedbackId: `FB-${Date.now()}`
+      message: '✅ Thank you! Your feedback has been received.',
+      feedbackId: feedbackDoc._id
     });
 
   } catch (err) {
-    console.error('Feedback email error:', err);
-
-    // Check if it's a Gmail authentication error
-    if (err.message.includes('Invalid login') || err.message.includes('Bad credentials')) {
-      return res.status(500).json({
-        error: 'Email service not configured. Please contact admin.',
-        details: 'Gmail authentication failed'
-      });
-    }
-
+    console.error('Error saving feedback:', err);
     res.status(500).json({
-      error: 'Failed to send feedback: ' + err.message
+      error: 'Failed to save feedback: ' + err.message
     });
   }
 });
